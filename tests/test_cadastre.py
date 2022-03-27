@@ -1,4 +1,4 @@
-from cadastrale import __version__
+from cadastre import __version__
 
 
 def test_version():
