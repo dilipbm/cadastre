@@ -3,8 +3,8 @@ import os
 
 app = Celery(__name__)
 app.conf.update(
-    BROKER_URL=os.environ["REDIS_URL"],
-    CELERY_RESULT_BACKEND=os.environ["REDIS_URL"]
+    BROKER_URL=os.environ["REDISCLOUD_URL"],
+    CELERY_RESULT_BACKEND=os.environ["REDISCLOUD_URL"]
 )
 
 
