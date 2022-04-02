@@ -1,4 +1,5 @@
 from asyncio.log import logger
+from io import StringIO
 from pathlib import Path
 from typing import Dict
 from celery import Celery
@@ -6,9 +7,13 @@ import os
 import pandas as pd
 import json
 import requests
-import tempfile
+from uuid import uuid4
 
-UPLOAD_FOLDER = str(Path(__file__).resolve().parent.joinpath("upload"))
+from cadastre.services import store_file
+from cadastre.services import read_file_to_df
+
+
+UPLOAD_FOLDER = "cadastreapi_tmp_storage"
 
 app = Celery(__name__)
 app.conf.update(
@@ -18,14 +23,11 @@ app.conf.update(
 
 
 @app.task(name="get_parcelles")
-def get_parcelles(
-    file_: str, lat_col_name: str, lgt_col_name: str, sep: str = ";"
-) -> Dict:
+def get_parcelles(file_: str, lat_col_name: str, lgt_col_name: str, sep: str) -> Dict:
     base_url = "https://apicarto.ign.fr/api/cadastre/parcelle"
     parcelles_data = []
     logger.debug(f"handling filename {file_}")
-    df = pd.read_csv(file_, sep=sep)
-
+    df = read_file_to_df(filename=file_, sep=sep)
     if lat_col_name not in df.columns:
         raise ValueError(f"column name <{lat_col_name}> is missing in csv file")
 
@@ -72,9 +74,12 @@ def get_parcelles(
 
     df_out = pd.DataFrame.from_records(parcelles_data)
     upload_dir = Path(UPLOAD_FOLDER)
-    temp_name = next(tempfile._get_candidate_names())
-    tmp_output_file = upload_dir.joinpath(f"{temp_name}.csv")
-    df_out.to_csv(tmp_output_file, index=False, sep=";")
+    temp_filename = f"{uuid4()}_out.csv"
+    tmp_output_file = upload_dir.joinpath(temp_filename)
+    tmp_output_file_buffer = StringIO()
+    df_out.to_csv(tmp_output_file_buffer, index=False, sep=";")
+    store_file(filename=str(tmp_output_file), content=tmp_output_file_buffer.getvalue())
+
     total_line = len(df_out)
     success = len(df_out[~df_out["numero"].isnull()])
     failure = len(df_out[df_out["numero"].isnull()])

@@ -1,11 +1,12 @@
-from asyncio.log import logger
+from glob import escape
+from io import StringIO
 import logging
 import tempfile
 from uuid import uuid4
 from pathlib import Path
 
 from fastapi import FastAPI, File, UploadFile, status
-from fastapi.responses import JSONResponse, FileResponse
+from fastapi.responses import JSONResponse, FileResponse, StreamingResponse
 from celery.result import AsyncResult
 from celery import states
 import pandas as pd
@@ -15,8 +16,9 @@ from cadastre.tasks import app as celery_app
 from cadastre import __version__
 from cadastre.utils import ContentType
 from cadastre.models import Message
+from cadastre.services import store_file, read_file
 
-UPLOAD_FOLDER = str(Path(__file__).resolve().parent.joinpath("upload"))
+UPLOAD_FOLDER = "cadastreapi_tmp_storage"
 app = FastAPI()
 
 
@@ -45,14 +47,14 @@ async def create_upload_file(file: UploadFile = File(...)) -> JSONResponse:
     """
     if file.content_type == ContentType.CSV.value:
         upload_dir = Path(UPLOAD_FOLDER)
-        upload_dir.mkdir(exist_ok=True)
-        filename = f"{uuid4()}.csv"
+        filename = f"{uuid4()}_in.csv"
         tmp_filename = upload_dir.joinpath(filename)
-        with open(tmp_filename, "wb") as fout:
-            file.file.seek(0)
-            fout.write(file.file.read())
-            fout.flush()
-
+        file.file.seek(0)
+        result = store_file(
+            str(tmp_filename), file.file.read().decode(encoding="utf-8")
+        )
+        if result:
+            logging.info(f"file successfully uploaded")
         file.file.seek(0)
         df = pd.read_csv(file.file)
 
@@ -110,11 +112,22 @@ def download_file(task_id: str) -> JSONResponse:
     res = AsyncResult(id=task_id, app=celery_app)
     if res.ready():
         if res.state == states.SUCCESS:
-            return FileResponse(
-                path=res.result.get("filename"),
-                filename="données_cadastres.csv",
-                media_type=ContentType.CSV.value,
+            filename = res.result.get("filename")
+            try:
+                result_file = read_file(filename=filename)
+            except:
+                return JSONResponse(
+                    status_code=status.HTTP_404_NOT_FOUND, content={"message": "error"}
+                )
+            response = StreamingResponse(
+                content=iter([StringIO(result_file).getvalue()]), media_type="text/csv"
             )
+            response.headers[
+                "Content-Disposition"
+            ] = "attachment; filename=données cadastre.csv"
+
+            return response
+
         elif res.state == states.FAILURE:
             logging.error(f"Task ID {task_id} failed")
             logging.error(res.info)
