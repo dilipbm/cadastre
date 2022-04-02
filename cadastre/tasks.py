@@ -8,6 +8,8 @@ import json
 import requests
 import tempfile
 
+UPLOAD_FOLDER = str(Path(__file__).resolve().parent.joinpath("upload"))
+
 app = Celery(__name__)
 app.conf.update(
     BROKER_URL=os.environ["REDISCLOUD_URL"],
@@ -69,9 +71,9 @@ def get_parcelles(
         parcelles_data.append(parcell_data)
 
     df_out = pd.DataFrame.from_records(parcelles_data)
-    tmp_dir = Path(tempfile.gettempdir())
+    upload_dir = Path(UPLOAD_FOLDER)
     temp_name = next(tempfile._get_candidate_names())
-    tmp_output_file = tmp_dir.joinpath(f"{temp_name}.csv")
+    tmp_output_file = upload_dir.joinpath(f"{temp_name}.csv")
     df_out.to_csv(tmp_output_file, index=False, sep=";")
     total_line = len(df_out)
     success = len(df_out[~df_out["numero"].isnull()])

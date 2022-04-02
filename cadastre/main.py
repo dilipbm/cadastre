@@ -15,6 +15,8 @@ from cadastre import __version__
 from cadastre.utils import ContentType
 from cadastre.models import Message
 
+UPLOAD_FOLDER = str(Path(__file__).resolve().parent.joinpath("upload"))
+
 app = FastAPI()
 
 
@@ -42,9 +44,9 @@ async def create_upload_file(file: UploadFile = File(...)) -> JSONResponse:
         JSONResponse: API JSON response
     """
     if file.content_type == ContentType.CSV.value:
-        tmp_dir = Path(tempfile.gettempdir())
+        upload_dir = Path(UPLOAD_FOLDER)
         filename = f"{uuid4()}.csv"
-        tmp_filename = tmp_dir.joinpath(filename)
+        tmp_filename = upload_dir.joinpath(filename)
         with open(tmp_filename, "wb") as fout:
             file.file.seek(0)
             fout.write(file.file.read())
@@ -82,9 +84,9 @@ async def get_parcelles(
     Returns:
         JSONResponse: API JSON response
     """
-    tmp_dir = Path(tempfile.gettempdir())
+    upload_dir = Path(UPLOAD_FOLDER)
     task = task_get_parcelles.delay(
-        str(tmp_dir.joinpath(filename)),
+        str(upload_dir.joinpath(filename)),
         lat_col_name=latcolname,
         lgt_col_name=lgtcolname,
         sep=seperator,
