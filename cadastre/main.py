@@ -16,8 +16,6 @@ from cadastre.utils import ContentType
 from cadastre.models import Message
 
 UPLOAD_FOLDER = str(Path(__file__).resolve().parent.joinpath("upload"))
-Path(UPLOAD_FOLDER).mkdir(exist_ok=True)
-
 app = FastAPI()
 
 
@@ -46,6 +44,7 @@ async def create_upload_file(file: UploadFile = File(...)) -> JSONResponse:
     """
     if file.content_type == ContentType.CSV.value:
         upload_dir = Path(UPLOAD_FOLDER)
+        upload_dir.mkdir(exist_ok=True)
         filename = f"{uuid4()}.csv"
         tmp_filename = upload_dir.joinpath(filename)
         with open(tmp_filename, "wb") as fout:
