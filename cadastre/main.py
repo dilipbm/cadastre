@@ -16,6 +16,7 @@ from cadastre.utils import ContentType
 from cadastre.models import Message
 
 UPLOAD_FOLDER = str(Path(__file__).resolve().parent.joinpath("upload"))
+Path(UPLOAD_FOLDER).mkdir(exist_ok=True)
 
 app = FastAPI()
 
