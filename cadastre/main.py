@@ -1,3 +1,4 @@
+from asyncio.log import logger
 import logging
 import tempfile
 from uuid import uuid4
@@ -60,6 +61,7 @@ async def create_upload_file(file: UploadFile = File(...)) -> JSONResponse:
             content={
                 "message": "file uploaded",
                 "filename": filename,
+                "filePath": str(tmp_filename),
                 "columns": df.columns.to_list(),
             },
         )
