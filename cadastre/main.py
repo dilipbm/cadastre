@@ -1,6 +1,7 @@
 from glob import escape
 from io import StringIO
 import logging
+import stat
 import tempfile
 from uuid import uuid4
 from pathlib import Path
@@ -34,7 +35,9 @@ def version():
         status.HTTP_200_OK: {"model": Message},
     },
 )
-async def create_upload_file(file: UploadFile = File(...)) -> JSONResponse:
+async def create_upload_file(
+    file: UploadFile = File(...), seperator: str = ";"
+) -> JSONResponse:
 
     """This endpoint is responsible to managing uploaded CSV file to the server
 
@@ -56,7 +59,14 @@ async def create_upload_file(file: UploadFile = File(...)) -> JSONResponse:
         if result:
             logging.info(f"file successfully uploaded")
         file.file.seek(0)
-        df = pd.read_csv(file.file)
+        df = pd.read_csv(file.file, sep=seperator)
+        columns = df.columns.to_list()
+
+        if len(columns) < 2:
+            return JSONResponse(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                content={"message": "atleast two columns required"},
+            )
 
         return JSONResponse(
             status_code=status.HTTP_200_OK,
@@ -64,7 +74,7 @@ async def create_upload_file(file: UploadFile = File(...)) -> JSONResponse:
                 "message": "file uploaded",
                 "filename": filename,
                 "filePath": str(tmp_filename),
-                "columns": df.columns.to_list(),
+                "columns": columns,
             },
         )
     else:
