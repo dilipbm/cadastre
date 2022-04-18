@@ -9,12 +9,13 @@ from celery.result import AsyncResult
 from celery import states
 import pandas as pd
 
-from cadastre.main import UPLOAD_FOLDER
 from cadastre.tasks import get_parcelles as task_get_parcelles
 from cadastre.tasks import app as celery_app
 from cadastre.utils import ContentType
 from cadastre.models import Message
 from cadastre.services import store_file, read_file
+
+UPLOAD_FOLDER = "cadastreapi_tmp_storage"
 
 router = APIRouter(
     prefix="/parcelle",
