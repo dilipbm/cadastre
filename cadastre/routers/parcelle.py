@@ -9,6 +9,7 @@ from celery.result import AsyncResult
 from celery import states
 import pandas as pd
 
+from cadastre.main import UPLOAD_FOLDER
 from cadastre.tasks import get_parcelles as task_get_parcelles
 from cadastre.tasks import app as celery_app
 from cadastre.utils import ContentType
