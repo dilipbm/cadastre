@@ -37,3 +37,14 @@ def read_file_to_df(filename: str, sep: str):
         return df
     else:
         return None
+
+
+def delete_file(filename: str):
+    try:
+        file = repository.get_contents(filename)
+        repository.delete_file(file.path, "Delete file", sha=file.sha)
+        return True
+    except Exception as e:
+        logging.error(f"Cannot delete file {filename} due to below error")
+        logging.error(e)
+        return False
