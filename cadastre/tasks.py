@@ -32,10 +32,6 @@ def extract_parcelle_data(json_reponse, original_row: Dict):
 
     if feature:
         properties = feature.get("properties")
-        try:
-            original_row.pop("Index")
-        except KeyError:
-            logger.debug("row not contain Index key")
         parcell_data = {
             **original_row,
             "id": feature.get("id"),
@@ -70,6 +66,11 @@ def get_parcelles(file_: str, lat_col_name: str, lgt_col_name: str, sep: str) ->
         lat = row.__getattribute__(lat_col_name)
         lon = row.__getattribute__(lgt_col_name)
         row_dict = row._asdict()
+        try:
+            row_dict.pop("Index")
+        except KeyError:
+            logger.debug("row not contain Index key")
+
         if not lat or not lon:
             parcell_data = {**row_dict, "id": "missing latitude or longtitude"}
             parcelles_data.append(parcell_data)
