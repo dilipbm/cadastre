@@ -13,7 +13,8 @@ from cadastre.tasks import get_parcelles as task_get_parcelles
 from cadastre.tasks import app as celery_app
 from cadastre.utils import ContentType
 from cadastre.models import Message
-from cadastre.services import store_file, read_file
+from cadastre.models import ParcellCeleryResult
+from cadastre.services import store_file, read_file, delete_file
 
 UPLOAD_FOLDER = "cadastreapi_tmp_storage"
 
@@ -117,13 +118,18 @@ def download_file(task_id: str) -> JSONResponse:
     res = AsyncResult(id=task_id, app=celery_app)
     if res.ready():
         if res.state == states.SUCCESS:
-            filename = res.result.get("filename")
+            celery_result = ParcellCeleryResult(**res.result)
+            filename = celery_result.output_filename
             try:
                 result_file = read_file(filename=filename)
             except:
+                result_file = None
+
+            if not result_file:
                 return JSONResponse(
                     status_code=status.HTTP_404_NOT_FOUND, content={"message": "error"}
                 )
+
             response = StreamingResponse(
                 content=iter([StringIO(result_file).getvalue()]), media_type="text/csv"
             )
@@ -144,3 +150,30 @@ def download_file(task_id: str) -> JSONResponse:
         return JSONResponse(
             status_code=status.HTTP_200_OK, content={"message": "file not ready yet"}
         )
+
+
+@router.get("/deleteFiles/{task_id}")
+def delete_files(task_id: str) -> JSONResponse:
+    """This endpoint is responsible to delete all files related to given task id
+
+    Args:
+        task_id (str): Task ID
+
+    Returns:
+        JSONResponse: Return message
+    """
+    res = AsyncResult(id=task_id, app=celery_app)
+    if res.ready():
+        celery_result = ParcellCeleryResult(**res.result)
+        try:
+            delete_file(celery_result.input_filename)
+            delete_file(celery_result.output_filename)
+            return JSONResponse(
+                status_code=status.HTTP_200_OK,
+                content={"message": "files are deleted"},
+            )
+        except:
+            return JSONResponse(
+                status_code=status.HTTP_200_OK,
+                content={"message": "something went wrong"},
+            )
