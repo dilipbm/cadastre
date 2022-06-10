@@ -44,7 +44,10 @@ async def create_upload_file(
     Returns:
         JSONResponse: API JSON response
     """
-    if file.content_type == ContentType.CSV.value:
+    if (
+        file.content_type == ContentType.CSV.value
+        or file.content_type == ContentType.EXCEL.value
+    ):
         upload_dir = Path(UPLOAD_FOLDER)
         filename = f"{uuid4()}_in.csv"
         tmp_filename = upload_dir.joinpath(filename)
