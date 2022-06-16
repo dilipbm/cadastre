@@ -34,24 +34,25 @@ def extract_parcelle_data(json_reponse, original_row: Dict):
         properties = feature.get("properties")
         parcell_data = {
             **original_row,
-            "id": feature.get("id"),
-            "numero": properties.get("numero"),
-            "feuille": properties.get("feuille"),
-            "section": properties.get("section"),
-            "code_dep": properties.get("code_dep"),
-            "code_com": properties.get("code_com"),
-            "com_abs": properties.get("com_abs"),
-            "echelle": properties.get("echelle"),
-            "code_arr": properties.get("code_arr"),
+            "cadastre_id": feature.get("id"),
+            "cadastre_numero": properties.get("numero"),
+            "cadastre_feuille": properties.get("feuille"),
+            "cadastre_section": properties.get("section"),
+            "cadastre_code_dep": properties.get("code_dep"),
+            "cadastre_code_com": properties.get("code_com"),
+            "cadastre_com_abs": properties.get("com_abs"),
+            "cadastre_echelle": properties.get("echelle"),
+            "cadastre_code_arr": properties.get("code_arr"),
         }
         return parcell_data
 
     else:
-        return {**original_row, "id": "Les données cadastrales absentes"}
+        return {**original_row, "cadastre_id": "Les données cadastrales absentes"}
 
 
 @app.task(name="get_parcelles")
 def get_parcelles(file_: str, lat_col_name: str, lgt_col_name: str, sep: str) -> Dict:
+    logger.info(f"Started processing {file_}")
     base_url = "https://apicarto.ign.fr/api/cadastre/parcelle"
     parcelles_data = []
     logger.debug(f"handling filename {file_}")
@@ -72,11 +73,11 @@ def get_parcelles(file_: str, lat_col_name: str, lgt_col_name: str, sep: str) ->
             logger.debug("row not contain Index key")
 
         if not lat or not lon:
-            parcell_data = {**row_dict, "id": "missing latitude or longtitude"}
+            parcell_data = {**row_dict, "cadastre_id": "missing latitude or longtitude"}
             parcelles_data.append(parcell_data)
             continue
 
-        geom = {"type": "Point", "coordinates": [lat, lon]}
+        geom = {"type": "Point", "coordinates": [lon, lat]}
         url = f"{base_url}?_limit=1&geom={json.dumps(geom)}"
         response = requests.get(url)
         if response.status_code == 200:
@@ -96,7 +97,7 @@ def get_parcelles(file_: str, lat_col_name: str, lgt_col_name: str, sep: str) ->
                 parcelles_data.append(parcell_data)
                 continue
 
-        parcell_data = {**row_dict, "id": "Erreur inconnue"}
+        parcell_data = {**row_dict, "cadastre_id": "Erreur inconnue"}
         parcelles_data.append(parcell_data)
 
     df_out = pd.DataFrame.from_records(parcelles_data)
@@ -108,8 +109,13 @@ def get_parcelles(file_: str, lat_col_name: str, lgt_col_name: str, sep: str) ->
     store_file(filename=str(tmp_output_file), content=tmp_output_file_buffer.getvalue())
 
     total_line = len(df_out)
-    success = len(df_out[~df_out["numero"].isnull()])
-    failure = len(df_out[df_out["numero"].isnull()])
+    if "cadastre_numero" in df_out.columns:
+        success = len(df_out[~df_out["cadastre_numero"].isnull()])
+        failure = len(df_out[df_out["cadastre_numero"].isnull()])
+    else:
+        success = 0
+        failure = total_line
+
     if total_line > 0:
         result = ParcellCeleryResult(
             input_filename=file_,
